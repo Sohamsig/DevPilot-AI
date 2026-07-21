@@ -5,11 +5,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/sohambabrekar/devpilot-ai/backend/internal/chat"
+	"github.com/sohambabrekar/devpilot-ai/backend/internal/middleware"
 )
 
 func SetupRouter() *gin.Engine {
 
-	r := gin.Default()
+	r := gin.New()
+
+	r.Use(gin.Recovery())
+	r.Use(middleware.LoggerMiddleware())
 
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{

@@ -4,16 +4,24 @@ import (
 	"fmt"
 
 	"github.com/sohambabrekar/devpilot-ai/backend/internal/config"
+	"github.com/sohambabrekar/devpilot-ai/backend/internal/logger"
 	"github.com/sohambabrekar/devpilot-ai/backend/internal/router"
 )
 
 func main() {
 
+	logger.Init()
+
 	cfg := config.LoadConfig()
 
 	r := router.SetupRouter()
 
-	fmt.Println("🚀 DevPilot AI running on port", cfg.Port)
+	fmt.Println("====================================")
+	fmt.Println(cfg.AppName)
+	fmt.Println("Environment :", cfg.AppEnv)
+	fmt.Println("Port        :", cfg.Port)
+	fmt.Println("Log Level   :", cfg.LogLevel)
+	fmt.Println("====================================")
 
 	if err := r.Run(":" + cfg.Port); err != nil {
 		panic(err)
