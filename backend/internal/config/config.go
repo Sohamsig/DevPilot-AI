@@ -8,10 +8,12 @@ import (
 )
 
 type Config struct {
-	Port     string
-	AppName  string
-	AppEnv   string
-	LogLevel string
+	Port         string
+	AppName      string
+	AppEnv       string
+	LogLevel     string
+	MongoURI     string
+	DatabaseName string
 }
 
 func LoadConfig() *Config {
@@ -27,6 +29,9 @@ func LoadConfig() *Config {
 		AppName:  getEnv("APP_NAME", "DevPilot AI"),
 		AppEnv:   getEnv("APP_ENV", "development"),
 		LogLevel: getEnv("LOG_LEVEL", "debug"),
+
+		MongoURI:     getEnv("MONGO_URI", "mongodb://localhost:27017"),
+		DatabaseName: getEnv("DB_NAME", "devpilot"),
 	}
 }
 

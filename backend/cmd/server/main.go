@@ -4,15 +4,23 @@ import (
 	"fmt"
 
 	"github.com/sohambabrekar/devpilot-ai/backend/internal/config"
+	"github.com/sohambabrekar/devpilot-ai/backend/internal/database"
 	"github.com/sohambabrekar/devpilot-ai/backend/internal/logger"
 	"github.com/sohambabrekar/devpilot-ai/backend/internal/router"
 )
 
 func main() {
-
 	logger.Init()
 
 	cfg := config.LoadConfig()
+
+	err := database.Connect(
+		cfg.MongoURI,
+		cfg.DatabaseName,
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	r := router.SetupRouter()
 
