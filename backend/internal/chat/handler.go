@@ -2,8 +2,11 @@ package chat
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sohambabrekar/devpilot-ai/backend/internal/models"
+	"github.com/sohambabrekar/devpilot-ai/backend/internal/repository"
 )
 
 func ChatHandler(c *gin.Context) {
@@ -25,6 +28,13 @@ func ChatHandler(c *gin.Context) {
 	}
 
 	reply := GenerateReply(req.Message)
+	repo := repository.ChatRepository{}
+
+	repo.Save(models.Chat{
+		Message:   req.Message,
+		Response:  reply,
+		CreatedAt: time.Now(),
+	})
 
 	c.JSON(http.StatusOK, ChatResponse{
 		Reply: reply,
