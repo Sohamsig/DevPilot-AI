@@ -1,10 +1,13 @@
 package chat
 
-import "errors"
+import (
+	"errors"
+	"strings"
+)
 
 func ValidateChatRequest(req ChatRequest) error {
 
-	if req.Message == "" {
+	if strings.TrimSpace(req.Message) == "" {
 		return errors.New("message cannot be empty")
 	}
 	return nil

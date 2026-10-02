@@ -23,3 +23,7 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+
+.pytest-workspaces/
+.pytest_cache/
+**/.pytest_cache/
