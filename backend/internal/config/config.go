@@ -8,10 +8,11 @@ import (
 )
 
 type Config struct {
-	Port         string
-	AppName      string
-	AppEnv       string
-	LogLevel     string
+	Port     string
+	AppName  string
+	AppEnv   string
+	LogLevel string
+
 	MongoURI     string
 	DatabaseName string
 }
