@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -11,6 +12,7 @@ import (
 var DB *mongo.Database
 
 func Connect(uri, dbName string) error {
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -24,5 +26,8 @@ func Connect(uri, dbName string) error {
 	}
 
 	DB = client.Database(dbName)
+
+	fmt.Println("✅ MongoDB Connected")
+
 	return nil
 }

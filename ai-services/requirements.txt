@@ -1,8 +1,0 @@
-fastapi
-uvicorn[standard]
-langchain
-langchain-openai
-langgraph
-pydantic
-pydantic-settings
-python-dotenv
