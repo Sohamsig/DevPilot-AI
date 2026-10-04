@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException
 from langchain_core.messages import HumanMessage
 
 from app.agent.graph import agent_graph
@@ -26,22 +26,15 @@ def health():
 )
 def run_agent(request: AgentRequest):
     try:
-        if request.workspace_path:
-            message = (
-                f"Workspace path: "
-                f"{request.workspace_path}\n\n"
-                f"User task: {request.message}"
-            )
-        else:
-            message = request.message
-
         result = agent_graph.invoke(
             {
+                "workspace_path": request.workspace_path,
+                "repository_context": None,
                 "messages": [
                     HumanMessage(
-                        content=message
+                        content=request.message
                     )
-                ]
+                ],
             }
         )
 
@@ -56,4 +49,3 @@ def run_agent(request: AgentRequest):
             status_code=500,
             detail=str(exc),
         )
-

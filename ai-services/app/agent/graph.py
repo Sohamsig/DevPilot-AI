@@ -1,18 +1,18 @@
-import json
-import uuid
-
-from langchain_core.messages import AIMessage
+﻿from langchain_core.messages import AIMessage, ToolMessage
 from langchain_ollama import ChatOllama
-from langgraph.graph import START, StateGraph
-from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.graph import START, END, StateGraph
+from langgraph.prebuilt import ToolNode
 
 from app.agent.prompts import SYSTEM_PROMPT
+from app.config import settings
 from app.agent.state import AgentState
+from app.repository.context import build_repository_context
 from app.tools.repository import (
     list_files,
     read_file,
     search_code,
 )
+from app.agent.tool_normalization import normalize_tool_call
 
 
 tools = [
@@ -31,84 +31,152 @@ llm = ChatOllama(
 llm_with_tools = llm.bind_tools(tools)
 
 
-TOOL_MAP = {
-    "list_files": list_files,
-    "read_file": read_file,
-    "search_code": search_code,
-}
+def format_repository_context(context) -> str:
+    if context is None:
+        return ""
+
+    lines = [
+        "Repository Context",
+        "",
+        f"Root: {context.root}",
+        f"Files: {context.file_count}",
+        f"Directories: {context.directory_count}",
+        f"Truncated: {context.truncated}",
+        "",
+        "Languages:",
+    ]
+
+    if context.languages:
+        lines.extend(
+            f"- {language}"
+            for language in context.languages
+        )
+    else:
+        lines.append("- None detected")
+
+    lines.append("")
+    lines.append("Repository structure:")
+
+    if context.directories:
+        lines.extend(
+            f"- {directory}/"
+            for directory in context.directories
+        )
+
+    if context.files:
+        lines.extend(
+            f"- {file_path}"
+            for file_path in context.files
+        )
+
+    return "\n".join(lines)
 
 
-def normalize_tool_call(response: AIMessage) -> AIMessage:
-    """
-    Normalize Qwen's JSON-in-content tool calls into
-    LangChain's standard AIMessage.tool_calls format.
-    """
+def format_tool_result(tool_message: ToolMessage) -> str:
+    content = tool_message.content
 
-    # If the provider already gave us proper tool calls,
-    # do nothing.
-    if response.tool_calls:
-        return response
+    if isinstance(content, str):
+        return content
 
-    content = response.content
-
-    if not isinstance(content, str):
-        return response
-
-    content = content.strip()
-
-    if not content.startswith("{"):
-        return response
-
-    try:
-        payload = json.loads(content)
-    except json.JSONDecodeError:
-        return response
-
-    if not isinstance(payload, dict):
-        return response
-
-    tool_name = payload.get("name")
-    arguments = payload.get("arguments", {})
-
-    if tool_name not in TOOL_MAP:
-        return response
-
-    if not isinstance(arguments, dict):
-        return response
-
-    return AIMessage(
-        content="",
-        tool_calls=[
-            {
-                "name": tool_name,
-                "args": arguments,
-                "id": f"call_{uuid.uuid4().hex}",
-                "type": "tool_call",
-            }
-        ],
-    )
+    return str(content)
 
 
 def agent_node(state: AgentState):
+    messages = state["messages"]
+
+    # A repository tool has just executed.
+    # Its output is authoritative evidence.
+    #
+    # Do NOT send it through the local model again.
+    if messages and isinstance(messages[-1], ToolMessage):
+        return {
+            "messages": [
+                AIMessage(
+                    content=format_tool_result(messages[-1])
+                )
+            ]
+        }
+
+    workspace_path = (
+        state.get("workspace_path")
+        or settings.workspace_root
+    )
+
+    repository_context = format_repository_context(
+        state.get("repository_context")
+    )
+
+    system_content = SYSTEM_PROMPT
+
+    if repository_context:
+        system_content = (
+            f"{SYSTEM_PROMPT}\n\n"
+            f"{repository_context}"
+        )
+
     response = llm_with_tools.invoke(
         [
             {
                 "role": "system",
-                "content": SYSTEM_PROMPT,
+                "content": system_content,
             },
-            *state["messages"],
+            *messages,
         ]
     )
 
-    response = normalize_tool_call(response)
+    response = normalize_tool_call(
+        response,
+        workspace_path=workspace_path,
+    )
 
     return {
         "messages": [response],
     }
 
 
+def repository_context_node(state: AgentState):
+    workspace_path = (
+        state.get("workspace_path")
+        or settings.workspace_root
+    )
+
+    context = build_repository_context(
+        workspace_path
+    )
+
+    return {
+        "repository_context": context,
+    }
+
+
+def route_after_agent(state: AgentState):
+    """
+    Route the graph after the agent node.
+
+    - If the model requested a tool -> tools
+    - Otherwise -> END
+    """
+    messages = state["messages"]
+
+    if not messages:
+        return END
+
+    last_message = messages[-1]
+
+    if isinstance(last_message, AIMessage):
+        if getattr(last_message, "tool_calls", None):
+            return "tools"
+
+    return END
+
+
 def build_graph():
     graph = StateGraph(AgentState)
+
+    graph.add_node(
+        "repository_context",
+        repository_context_node,
+    )
 
     graph.add_node(
         "agent",
@@ -122,12 +190,21 @@ def build_graph():
 
     graph.add_edge(
         START,
+        "repository_context",
+    )
+
+    graph.add_edge(
+        "repository_context",
         "agent",
     )
 
     graph.add_conditional_edges(
         "agent",
-        tools_condition,
+        route_after_agent,
+        {
+            "tools": "tools",
+            END: END,
+        },
     )
 
     graph.add_edge(
