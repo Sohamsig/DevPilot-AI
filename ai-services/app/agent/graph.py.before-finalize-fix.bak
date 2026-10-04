@@ -1,7 +1,7 @@
 ﻿from langchain_core.messages import AIMessage, ToolMessage
 from langchain_ollama import ChatOllama
-from langgraph.graph import START, END, StateGraph
-from langgraph.prebuilt import ToolNode
+from langgraph.graph import START, StateGraph
+from langgraph.prebuilt import ToolNode, tools_condition
 
 from app.agent.prompts import SYSTEM_PROMPT
 from app.config import settings
@@ -32,6 +32,8 @@ llm_with_tools = llm.bind_tools(tools)
 
 
 def format_repository_context(context) -> str:
+    """Format repository structure into compact LLM-readable context."""
+
     if context is None:
         return ""
 
@@ -73,6 +75,14 @@ def format_repository_context(context) -> str:
 
 
 def format_tool_result(tool_message: ToolMessage) -> str:
+    """
+    Convert repository tool evidence into the final grounded answer.
+
+    Repository tools are authoritative. We intentionally do not send
+    their result back through the LLM because a small local model can
+    discard or contradict perfectly valid tool evidence.
+    """
+
     content = tool_message.content
 
     if isinstance(content, str):
@@ -82,12 +92,17 @@ def format_tool_result(tool_message: ToolMessage) -> str:
 
 
 def agent_node(state: AgentState):
+    """
+    Main agent reasoning node.
+
+    Important grounding rule:
+    Once a repository tool has executed, return its result directly
+    instead of asking the LLM to reinterpret the evidence.
+    """
+
     messages = state["messages"]
 
-    # A repository tool has just executed.
-    # Its output is authoritative evidence.
-    #
-    # Do NOT send it through the local model again.
+    # If a repository tool has just executed, preserve its evidence.
     if messages and isinstance(messages[-1], ToolMessage):
         return {
             "messages": [
@@ -135,6 +150,10 @@ def agent_node(state: AgentState):
 
 
 def repository_context_node(state: AgentState):
+    """
+    Build structural repository context before agent reasoning.
+    """
+
     workspace_path = (
         state.get("workspace_path")
         or settings.workspace_root
@@ -147,27 +166,6 @@ def repository_context_node(state: AgentState):
     return {
         "repository_context": context,
     }
-
-
-def route_after_agent(state: AgentState):
-    """
-    Route the graph after the agent node.
-
-    - If the model requested a tool -> tools
-    - Otherwise -> END
-    """
-    messages = state["messages"]
-
-    if not messages:
-        return END
-
-    last_message = messages[-1]
-
-    if isinstance(last_message, AIMessage):
-        if getattr(last_message, "tool_calls", None):
-            return "tools"
-
-    return END
 
 
 def build_graph():
@@ -200,11 +198,7 @@ def build_graph():
 
     graph.add_conditional_edges(
         "agent",
-        route_after_agent,
-        {
-            "tools": "tools",
-            END: END,
-        },
+        tools_condition,
     )
 
     graph.add_edge(

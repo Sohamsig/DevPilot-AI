@@ -1,6 +1,11 @@
+﻿from pathlib import Path
+
 from langchain_core.messages import HumanMessage
 
 from app.agent.graph import agent_graph
+
+
+WORKSPACE = str(Path(__file__).resolve().parents[2])
 
 
 def invoke_agent(prompt: str):
@@ -8,7 +13,8 @@ def invoke_agent(prompt: str):
         {
             "messages": [
                 HumanMessage(content=prompt)
-            ]
+            ],
+            "workspace_path": WORKSPACE,
         }
     )
 
@@ -20,19 +26,16 @@ def test_agent_lists_files():
 
     messages = result["messages"]
 
-    # The agent should make a tool call.
     assert any(
         getattr(message, "tool_calls", None)
         for message in messages
     )
 
-    # The tool should actually execute.
     assert any(
         message.__class__.__name__ == "ToolMessage"
         for message in messages
     )
 
-    # The agent should produce a final answer.
     final_message = messages[-1]
 
     assert final_message.content
@@ -46,7 +49,6 @@ def test_agent_searches_repository():
 
     messages = result["messages"]
 
-    # A repository tool should have executed.
     assert any(
         message.__class__.__name__ == "ToolMessage"
         for message in messages

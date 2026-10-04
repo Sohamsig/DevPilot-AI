@@ -22,19 +22,19 @@ IGNORED_FILES = {
 
 
 def resolve_workspace(workspace_path: str | None) -> Path:
-    """
-    Resolve the repository workspace.
+    root = Path(settings.workspace_root).resolve()
 
-    If an explicit workspace_path is provided, it represents the
-    repository selected by the caller.
-
-    If no workspace_path is provided, use the configured default
-    workspace root.
-    """
     if workspace_path:
         workspace = Path(workspace_path).resolve()
     else:
-        workspace = Path(settings.workspace_root).resolve()
+        workspace = root
+
+    try:
+        workspace.relative_to(root)
+    except ValueError:
+        raise ValueError(
+            "Workspace is outside the configured workspace root."
+        )
 
     if not workspace.exists():
         raise ValueError("Workspace does not exist.")
@@ -130,13 +130,9 @@ def search_code(
         except (UnicodeDecodeError, OSError):
             continue
 
-        for line_number, line in enumerate(
-            content.splitlines(),
-            start=1,
-        ):
+        for line_number, line in enumerate(content.splitlines(), start=1):
             if query.lower() in line.lower():
                 relative = path.relative_to(workspace).as_posix()
-
                 results.append(
                     f"{relative}:{line_number}: {line}"
                 )
