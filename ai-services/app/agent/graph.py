@@ -1,4 +1,4 @@
-﻿from langchain_core.messages import AIMessage, ToolMessage
+from langchain_core.messages import AIMessage, ToolMessage
 from langchain_ollama import ChatOllama
 from langgraph.graph import START, END, StateGraph
 from langgraph.prebuilt import ToolNode
@@ -7,6 +7,7 @@ from app.agent.prompts import SYSTEM_PROMPT
 from app.config import settings
 from app.agent.state import AgentState
 from app.repository.context import build_repository_context
+
 from app.tools.repository import (
     list_files,
     read_file,
@@ -14,12 +15,10 @@ from app.tools.repository import (
 )
 from app.agent.tool_normalization import normalize_tool_call
 
-
-tools = [
-    list_files,
-    read_file,
-    search_code,
-]
+from app.tools.code_changes import (
+    preview_file_change,
+    propose_file_change,
+)
 
 
 llm = ChatOllama(
@@ -27,6 +26,13 @@ llm = ChatOllama(
     temperature=0,
 )
 
+tools = [
+    list_files,
+    read_file,
+    search_code,
+    preview_file_change,
+    propose_file_change,
+]
 
 llm_with_tools = llm.bind_tools(tools)
 
@@ -150,12 +156,7 @@ def repository_context_node(state: AgentState):
 
 
 def route_after_agent(state: AgentState):
-    """
-    Route the graph after the agent node.
-
-    - If the model requested a tool -> tools
-    - Otherwise -> END
-    """
+    """Route to tools only when the latest AI message has a valid tool call."""
     messages = state["messages"]
 
     if not messages:
@@ -164,7 +165,14 @@ def route_after_agent(state: AgentState):
     last_message = messages[-1]
 
     if isinstance(last_message, AIMessage):
-        if getattr(last_message, "tool_calls", None):
+        tool_calls = getattr(last_message, "tool_calls", None) or []
+        if any(call.get("name") in {
+            "list_files",
+            "read_file",
+            "search_code",
+            "preview_file_change",
+            "propose_file_change",
+        } for call in tool_calls):
             return "tools"
 
     return END
