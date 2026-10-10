@@ -1,4 +1,5 @@
 ﻿import json
+import re
 import uuid
 
 from langchain_core.messages import AIMessage
@@ -8,6 +9,8 @@ VALID_TOOL_NAMES = {
     "list_files",
     "read_file",
     "search_code",
+    "preview_file_change",
+    "propose_file_change",
 }
 
 
@@ -54,12 +57,25 @@ def normalize_tool_call(
 
     content = content.strip()
 
-    if not content.startswith("{"):
-        return response
+    # Ollama may put the tool-call JSON inside a fenced block
+    # after explanatory text.
+    candidates = [content]
+    candidates.extend(
+        re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", content, re.DOTALL)
+    )
 
-    try:
-        payload = json.loads(content)
-    except json.JSONDecodeError:
+    payload = None
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+
+        if isinstance(parsed, dict) and "name" in parsed:
+            payload = parsed
+            break
+
+    if payload is None:
         return response
 
     if not isinstance(payload, dict):
