@@ -82,3 +82,36 @@ def test_proposal_rejects_path_traversal(tmp_path):
             "new = True\n",
             str(tmp_path),
         )
+
+def test_rejected_proposal_cannot_be_approved(tmp_path):
+    source = tmp_path / "main.py"
+    source.write_text("old = True\n", encoding="utf-8")
+
+    proposal = create_proposal(
+        "main.py",
+        "new = True\n",
+        str(tmp_path),
+    )
+
+    reject_proposal(proposal["proposal_id"])
+
+    with pytest.raises(ValueError, match="no longer pending"):
+        approve_proposal(proposal["proposal_id"])
+
+    assert source.read_text(encoding="utf-8") == "old = True\n"
+
+
+def test_ignored_file_cannot_receive_proposal(tmp_path):
+    ignored_dir = tmp_path / ".git"
+    ignored_dir.mkdir()
+    source = ignored_dir / "config"
+    source.write_text("original\n", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        create_proposal(
+            ".git/config",
+            "modified\n",
+            str(tmp_path),
+        )
+
+    assert source.read_text(encoding="utf-8") == "original\n"

@@ -1,4 +1,5 @@
-﻿import difflib
+﻿import json
+import difflib
 from pathlib import Path
 
 from langchain_core.tools import tool
@@ -84,9 +85,10 @@ def propose_file_change(
         workspace_path=workspace_path,
     )
 
-    return (
-        f"Proposal created: {proposal['proposal_id']}\n"
-        f"File: {proposal['file_path']}\n"
-        f"Status: {proposal['status']}\n\n"
-        f"Review this diff before approval:\n{proposal['diff']}"
-    )
+    return json.dumps({
+        "type": "change_proposal",
+        "proposal_id": proposal["proposal_id"],
+        "file_path": proposal["file_path"],
+        "diff": proposal["diff"],
+        "status": proposal["status"],
+    })

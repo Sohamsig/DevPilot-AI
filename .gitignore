@@ -1,0 +1,28 @@
+﻿# Git
+.git/
+
+# Python
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.py[cod]
+
+# Node.js
+node_modules/
+.next/
+dist/
+build/
+coverage/
+.turbo/
+.cache/
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Local artifacts
+*.log

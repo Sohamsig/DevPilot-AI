@@ -6,9 +6,6 @@ class AgentRequest(BaseModel):
     workspace_path: str | None = None
 
 
-class AgentResponse(BaseModel):
-    answer: str
-
 class ChangeProposalRequest(BaseModel):
     file_path: str = Field(min_length=1)
     proposed_content: str
@@ -20,6 +17,11 @@ class ChangeProposalResponse(BaseModel):
     file_path: str
     diff: str
     status: str
+
+
+class AgentResponse(BaseModel):
+    answer: str
+    proposal: ChangeProposalResponse | None = None
 
 
 class ChangeDecisionResponse(BaseModel):
