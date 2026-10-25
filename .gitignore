@@ -1,4 +1,4 @@
-﻿# Git
+# Git
 .git/
 
 # Python
@@ -26,3 +26,6 @@ coverage/
 
 # Local artifacts
 *.log
+
+# Local recovery artifacts
+/recovery/

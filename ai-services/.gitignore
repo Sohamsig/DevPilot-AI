@@ -27,3 +27,12 @@ Thumbs.db
 .pytest-workspaces/
 .pytest_cache/
 **/.pytest_cache/
+
+# Temporary editor and recovery backups
+*.bak
+*.bak-*
+*.before-*
+*.orig
+# Local test output
+pytest-agent-results.txt
+
