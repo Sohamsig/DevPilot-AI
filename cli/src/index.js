@@ -1,0 +1,185 @@
+﻿#!/usr/bin/env node
+
+import { pathToFileURL } from "node:url";
+
+const DEFAULT_URL = "http://127.0.0.1:8000";
+
+function usage() {
+  console.log(`
+DevPilot AI CLI
+
+Usage:
+  devpilot doctor [--url URL]
+  devpilot run <message> [--workspace PATH] [--url URL]
+  devpilot proposal <file> <content-file> [--workspace PATH] [--url URL]
+  devpilot approve <proposal-id> [--url URL]
+  devpilot reject <proposal-id> [--url URL]
+
+Environment:
+  DEVPILOT_URL  FastAPI base URL (default: ${DEFAULT_URL})
+
+Note:
+  Approving a proposal writes the proposed content to the target file.
+  Review the diff before approving.
+`);
+}
+
+function parseOptions(args) {
+  const positional = [];
+  const options = {
+    url: process.env.DEVPILOT_URL || DEFAULT_URL,
+    workspace: process.cwd(),
+  };
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    if (arg === "--url" || arg === "--workspace") {
+      const value = args[++i];
+      if (!value || value.startsWith("--")) {
+        throw new Error(`Missing value for ${arg}`);
+      }
+      options[arg === "--url" ? "url" : "workspace"] = value;
+    } else if (arg.startsWith("--")) {
+      throw new Error(`Unknown option: ${arg}`);
+    } else {
+      positional.push(arg);
+    }
+  }
+
+  options.url = options.url.replace(/\/+$/, "");
+  return { positional, options };
+}
+
+async function request(url, init) {
+  let response;
+
+  try {
+    response = await fetch(url, {
+      ...init,
+      signal: AbortSignal.timeout(120_000),
+    });
+  } catch (error) {
+    throw new Error(
+      `Cannot reach DevPilot AI at ${url}. Is the FastAPI service running? (${error.message})`,
+    );
+  }
+
+  const text = await response.text();
+  let data;
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = { detail: text };
+  }
+
+  if (!response.ok) {
+    const detail = data.detail || `HTTP ${response.status}`;
+    throw new Error(`DevPilot API error: ${detail}`);
+  }
+
+  return data;
+}
+
+async function main(argv) {
+  const [command, ...rawArgs] = argv;
+
+  if (!command || command === "--help" || command === "-h" || command === "help") {
+    usage();
+    return;
+  }
+
+  if (command === "--version" || command === "-v") {
+    console.log("devpilot-ai-cli 0.1.0");
+    return;
+  }
+
+  const { positional, options } = parseOptions(rawArgs);
+  const base = options.url;
+
+  switch (command) {
+    case "doctor": {
+      const health = await request(`${base}/health`);
+      console.log(`DevPilot AI: ${health.status}`);
+      console.log(`Service: ${health.service}`);
+      console.log(`Version: ${health.version}`);
+      break;
+    }
+
+    case "run": {
+      if (!positional.length) {
+        throw new Error('Usage: devpilot run "Explain this repository"');
+      }
+
+      const result = await request(`${base}/v1/agent/runs`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          message: positional.join(" "),
+          workspace_path: options.workspace,
+        }),
+      });
+
+      console.log(result.answer);
+      break;
+    }
+
+    case "proposal": {
+      if (positional.length !== 2) {
+        throw new Error(
+          "Usage: devpilot proposal <relative-file-path> <content-file>",
+        );
+      }
+
+      const [filePath, contentFile] = positional;
+      const { readFile } = await import("node:fs/promises");
+      const proposedContent = await readFile(contentFile, "utf8");
+
+      const result = await request(`${base}/v1/changes/proposals`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          file_path: filePath,
+          proposed_content: proposedContent,
+          workspace_path: options.workspace,
+        }),
+      });
+
+      console.log(`Proposal: ${result.proposal_id}`);
+      console.log(`File: ${result.file_path}`);
+      console.log(`Status: ${result.status}`);
+      console.log(result.diff);
+      console.log(`\nReview the diff before running: devpilot approve ${result.proposal_id}`);
+      break;
+    }
+
+    case "approve":
+    case "reject": {
+      if (positional.length !== 1) {
+        throw new Error(`Usage: devpilot ${command} <proposal-id>`);
+      }
+
+      const id = encodeURIComponent(positional[0]);
+      const result = await request(`${base}/v1/changes/${id}/${command}`, {
+        method: "POST",
+      });
+
+      console.log(`Proposal: ${result.proposal_id}`);
+      if (result.file_path) console.log(`File: ${result.file_path}`);
+      console.log(`Status: ${result.status}`);
+      break;
+    }
+
+    default:
+      throw new Error(`Unknown command: ${command}`);
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main(process.argv.slice(2)).catch((error) => {
+    console.error(`Error: ${error.message}`);
+    process.exitCode = 1;
+  });
+}
+

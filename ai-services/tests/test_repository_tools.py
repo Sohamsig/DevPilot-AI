@@ -5,6 +5,7 @@ import pytest
 from app.tools import repository
 from app.tools.repository import (
     list_files,
+    list_top_level_folders,
     read_file,
     search_code,
 )
@@ -166,3 +167,152 @@ def test_search_code_does_not_return_env_content(workspace):
     )
 
     assert "super-secret" not in result
+def test_list_files_skips_external_symlink(workspace, tmp_path):
+    outside_file = workspace.parent / "outside_repository_secret.py"
+    outside_file.write_text(
+        "OUTSIDE_REPOSITORY_MARKER",
+        encoding="utf-8",
+    )
+
+    link = workspace / "src" / "external_link.py"
+
+    try:
+        link.symlink_to(outside_file)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"Symlink creation is unavailable: {exc}")
+
+    result = list_files.invoke(
+        {"workspace_path": str(workspace)}
+    )
+
+    assert "src/external_link.py" not in result
+    assert "outside_repository_secret.py" not in result
+
+
+def test_search_code_skips_external_symlink(workspace):
+    outside_file = workspace.parent / "outside_search_secret.py"
+    outside_file.write_text(
+        "UNIQUE_OUTSIDE_SEARCH_MARKER",
+        encoding="utf-8",
+    )
+
+    link = workspace / "src" / "external_search.py"
+
+    try:
+        link.symlink_to(outside_file)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"Symlink creation is unavailable: {exc}")
+
+    result = search_code.invoke(
+        {
+            "query": "UNIQUE_OUTSIDE_SEARCH_MARKER",
+            "workspace_path": str(workspace),
+        }
+    )
+
+    assert "UNIQUE_OUTSIDE_SEARCH_MARKER" not in result
+    assert "external_search.py" not in result
+
+
+def test_list_top_level_folders_skips_external_symlink(workspace):
+    outside_dir = workspace.parent / "outside_repository_folder"
+    outside_dir.mkdir()
+    (outside_dir / "external.py").write_text(
+        "print('outside')",
+        encoding="utf-8",
+    )
+
+    link = workspace / "external_folder_link"
+
+    try:
+        link.symlink_to(outside_dir, target_is_directory=True)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"Directory symlink creation is unavailable: {exc}")
+
+    result = list_top_level_folders.invoke(
+        {"workspace_path": str(workspace)}
+    )
+
+    assert "src" in result.splitlines()
+    assert "external_folder_link" not in result.splitlines()
+
+
+def test_read_file_rejects_external_symlink(workspace):
+    outside_file = workspace.parent / "outside_read_secret.py"
+    outside_file.write_text(
+        "OUTSIDE_READ_MARKER",
+        encoding="utf-8",
+    )
+
+    link = workspace / "src" / "external_read.py"
+
+    try:
+        link.symlink_to(outside_file)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"Symlink creation is unavailable: {exc}")
+
+    with pytest.raises(ValueError, match="outside"):
+        read_file.invoke(
+            {
+                "file_path": "src/external_read.py",
+                "workspace_path": str(workspace),
+            }
+        )
+
+def test_search_code_excludes_backup_files(workspace):
+    from app.tools.repository import search_code
+
+    (workspace / "main.py").write_text(
+        '@app.get("/health")' + "\n",
+        encoding="utf-8",
+    )
+    (workspace / "main.py.bak").write_text(
+        '@app.get("/health")' + "\n",
+        encoding="utf-8",
+    )
+    (workspace / "main.py.bak-20261023-083901").write_text(
+        '@app.get("/health")' + "\n",
+        encoding="utf-8",
+    )
+    (workspace / "main.py.orig").write_text(
+        '@app.get("/health")' + "\n",
+        encoding="utf-8",
+    )
+
+    result = search_code.invoke({
+        "query": '@app.get("/health")',
+        "workspace_path": str(workspace),
+    })
+
+    assert "main.py:" in result
+    assert "main.py.bak:" not in result
+    assert "main.py.bak-" not in result
+    assert "main.py.orig:" not in result
+
+
+def test_list_files_excludes_backup_files(workspace):
+    from app.tools.repository import list_files
+
+    (workspace / "main.py").write_text(
+        "print('current')\n",
+        encoding="utf-8",
+    )
+    (workspace / "main.py.bak").write_text(
+        "print('backup')\n",
+        encoding="utf-8",
+    )
+    (workspace / "main.py.old").write_text(
+        "print('old')\n",
+        encoding="utf-8",
+    )
+
+    result = list_files.invoke({
+        "workspace_path": str(workspace),
+    })
+
+    assert "main.py" in result.splitlines()
+    assert "main.py.bak" not in result.splitlines()
+    assert "main.py.old" not in result.splitlines()
+
+
+

@@ -6,11 +6,26 @@ from app.config import settings
 
 
 IGNORED_DIRECTORIES = {
+    # Git and Python environments
     ".git",
     ".venv",
     "venv",
-    "node_modules",
     "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+
+    # JavaScript dependencies and generated builds
+    "node_modules",
+    ".next",
+    "out",
+    "dist",
+    "build",
+    "coverage",
+
+    # Other generated directories
+    ".turbo",
+    ".cache",
 }
 
 IGNORED_FILES = {
@@ -19,6 +34,12 @@ IGNORED_FILES = {
     ".env.development",
     ".env.production",
 }
+
+IGNORED_FILE_SUFFIXES = (
+    ".bak",
+    ".orig",
+    ".old",
+)
 
 
 def resolve_workspace(workspace_path: str | None) -> Path:
@@ -45,6 +66,20 @@ def resolve_workspace(workspace_path: str | None) -> Path:
     return workspace
 
 
+
+def is_safe_workspace_entry(path: Path, workspace: Path) -> bool:
+    """Reject symlinks and entries resolving outside the workspace."""
+
+    try:
+        if path.is_symlink():
+            return False
+        path.resolve().relative_to(workspace.resolve())
+    except (OSError, RuntimeError, ValueError):
+        return False
+
+    return True
+
+
 def is_ignored(path: Path, workspace: Path) -> bool:
     relative = path.relative_to(workspace)
 
@@ -52,6 +87,14 @@ def is_ignored(path: Path, workspace: Path) -> bool:
         return True
 
     if path.name in IGNORED_FILES:
+        return True
+
+    filename = path.name.lower()
+
+    if filename.endswith(IGNORED_FILE_SUFFIXES):
+        return True
+
+    if ".bak-" in filename:
         return True
 
     return False
@@ -66,6 +109,9 @@ def list_files(workspace_path: str | None = None) -> str:
     files = []
 
     for path in workspace.rglob("*"):
+        if not is_safe_workspace_entry(path, workspace):
+            continue
+
         if not path.is_file():
             continue
 
@@ -75,6 +121,36 @@ def list_files(workspace_path: str | None = None) -> str:
         files.append(path.relative_to(workspace).as_posix())
 
     return "\n".join(sorted(files))
+
+
+
+@tool
+def list_top_level_folders(
+    workspace_path: str | None = None,
+) -> str:
+    """List only immediate, non-ignored directories in the workspace root."""
+
+    workspace = resolve_workspace(workspace_path)
+
+    folders = []
+
+    for path in workspace.iterdir():
+        if not is_safe_workspace_entry(path, workspace):
+            continue
+
+        if not path.is_dir():
+            continue
+
+        if is_ignored(path, workspace):
+            continue
+
+        folders.append(path.name)
+
+    if not folders:
+        return "No top-level folders found."
+
+    return "\n".join(sorted(folders))
+
 
 
 @tool
@@ -119,6 +195,9 @@ def search_code(
     results = []
 
     for path in workspace.rglob("*"):
+        if not is_safe_workspace_entry(path, workspace):
+            continue
+
         if not path.is_file():
             continue
 

@@ -1,7 +1,11 @@
-from fastapi import FastAPI, HTTPException
-from langchain_core.messages import HumanMessage
+import json
 
+from langchain_core.messages import ToolMessage
+
+from fastapi import FastAPI, HTTPException
+from langchain_core.messages import HumanMessage, ToolMessage
 from app.agent.graph import agent_graph
+from app.agent.output_constraints import enforce_bullet_count
 from app.schemas import (
     AgentRequest,
     AgentResponse,
@@ -49,7 +53,39 @@ def run_agent(request: AgentRequest):
 
         final_message = result["messages"][-1]
 
-        return AgentResponse(answer=final_message.content)
+        answer = enforce_bullet_count(
+            request.message,
+            final_message.content,
+        )
+
+        proposal = None
+
+        for message in reversed(result["messages"]):
+            if (
+                isinstance(message, ToolMessage)
+                and message.name == "propose_file_change"
+            ):
+                try:
+                    tool_data = json.loads(message.content)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+
+                if (
+                    isinstance(tool_data, dict)
+                    and tool_data.get("type") == "change_proposal"
+                ):
+                    proposal = {
+                        "proposal_id": tool_data["proposal_id"],
+                        "file_path": tool_data["file_path"],
+                        "diff": tool_data["diff"],
+                        "status": tool_data["status"],
+                    }
+                    break
+
+        return AgentResponse(
+            answer=answer,
+            proposal=proposal,
+        )
 
     except Exception as exc:
         raise HTTPException(

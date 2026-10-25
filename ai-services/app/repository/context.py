@@ -15,6 +15,7 @@ class RepositoryContext:
     truncated: bool = False
 
 
+
 IGNORED_DIRECTORIES = {
     ".git",
     ".venv",
@@ -23,11 +24,16 @@ IGNORED_DIRECTORIES = {
     ".pytest_cache",
     ".pytest-workspaces",
     "node_modules",
+    ".next",
+    ".turbo",
+    ".cache",
+    "out",
     "dist",
     "build",
-    "vendor",
     "coverage",
+    "vendor",
 }
+
 
 IGNORED_FILES = {
     ".env",
@@ -102,8 +108,12 @@ def build_repository_context(
 
     for path in workspace.rglob("*"):
         try:
+            if path.is_symlink():
+                continue
+
+            path.resolve().relative_to(workspace)
             relative = path.relative_to(workspace)
-        except ValueError:
+        except (OSError, RuntimeError, ValueError):
             continue
 
         if _is_ignored_path(relative):

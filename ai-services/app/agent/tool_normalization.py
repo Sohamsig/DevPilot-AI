@@ -7,6 +7,7 @@ from langchain_core.messages import AIMessage
 
 VALID_TOOL_NAMES = {
     "list_files",
+    "list_top_level_folders",
     "read_file",
     "search_code",
     "preview_file_change",
@@ -18,11 +19,7 @@ def normalize_tool_call(
     response: AIMessage,
     workspace_path: str | None = None,
 ) -> AIMessage:
-    """
-    Normalize native or JSON-in-content tool calls.
-
-    The workspace path is controlled by graph state.
-    """
+    """Normalize native and JSON-in-content tool calls."""
 
     if response.tool_calls:
         normalized_calls = []
@@ -31,19 +28,10 @@ def normalize_tool_call(
             name = call.get("name")
             args = dict(call.get("args") or {})
 
-            if (
-                name in VALID_TOOL_NAMES
-                and workspace_path
-                and not args.get("workspace_path")
-            ):
+            if name in VALID_TOOL_NAMES and workspace_path:
                 args["workspace_path"] = workspace_path
 
-            normalized_calls.append(
-                {
-                    **call,
-                    "args": args,
-                }
-            )
+            normalized_calls.append({**call, "args": args})
 
         return AIMessage(
             content=response.content,
@@ -57,42 +45,42 @@ def normalize_tool_call(
 
     content = content.strip()
 
-    # Ollama may put the tool-call JSON inside a fenced block
-    # after explanatory text.
-    candidates = [content]
-    candidates.extend(
-        re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", content, re.DOTALL)
+    fenced = re.fullmatch(
+        r"```(?:json)?\s*(.*?)\s*```",
+        content,
+        flags=re.DOTALL | re.IGNORECASE,
     )
 
+    if fenced:
+        content = fenced.group(1).strip()
+
     payload = None
-    for candidate in candidates:
+    decoder = json.JSONDecoder()
+
+    for index, character in enumerate(content):
+        if character != "{":
+            continue
+
         try:
-            parsed = json.loads(candidate)
+            candidate, _ = decoder.raw_decode(content[index:])
         except json.JSONDecodeError:
             continue
 
-        if isinstance(parsed, dict) and "name" in parsed:
-            payload = parsed
+        if (
+            isinstance(candidate, dict)
+            and candidate.get("name") in VALID_TOOL_NAMES
+            and isinstance(candidate.get("arguments", {}), dict)
+        ):
+            payload = candidate
             break
 
     if payload is None:
         return response
 
-    if not isinstance(payload, dict):
-        return response
+    tool_name = payload["name"]
+    arguments = dict(payload.get("arguments", {}))
 
-    tool_name = payload.get("name")
-    arguments = payload.get("arguments", {})
-
-    if tool_name not in VALID_TOOL_NAMES:
-        return response
-
-    if not isinstance(arguments, dict):
-        return response
-
-    arguments = dict(arguments)
-
-    if workspace_path and not arguments.get("workspace_path"):
+    if workspace_path:
         arguments["workspace_path"] = workspace_path
 
     return AIMessage(

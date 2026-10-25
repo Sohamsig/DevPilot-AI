@@ -10,6 +10,7 @@ from app.repository.context import build_repository_context
 
 from app.tools.repository import (
     list_files,
+    list_top_level_folders,
     read_file,
     search_code,
 )
@@ -28,6 +29,7 @@ llm = ChatOllama(
 
 tools = [
     list_files,
+    list_top_level_folders,
     read_file,
     search_code,
     preview_file_change,
@@ -90,18 +92,162 @@ def format_tool_result(tool_message: ToolMessage) -> str:
 def agent_node(state: AgentState):
     messages = state["messages"]
 
-    # A repository tool has just executed.
-    # Its output is authoritative evidence.
-    #
-    # Do NOT send it through the local model again.
-    if messages and isinstance(messages[-1], ToolMessage):
+    # Route explicit top-level-folder requests to the dedicated tool.
+    last_user_message = next(
+        (
+            message
+            for message in reversed(messages)
+            if getattr(message, "type", None) == "human"
+        ),
+        None,
+    )
+    request_text = (
+        str(last_user_message.content).lower()
+        if last_user_message is not None
+        else ""
+    )
+
+    asks_for_top_level = (
+        ("top-level" in request_text or "top level" in request_text)
+        and "folder" in request_text
+    )
+
+    if (
+        asks_for_top_level
+        and messages
+        and getattr(messages[-1], "type", None) == "human"
+    ):
+        workspace_path = (
+            state.get("workspace_path")
+            or settings.workspace_root
+        )
         return {
             "messages": [
                 AIMessage(
-                    content=format_tool_result(messages[-1])
+                    content="",
+                    tool_calls=[
+                        {
+                            "name": "list_top_level_folders",
+                            "args": {
+                                "workspace_path": str(workspace_path),
+                            },
+                            "id": "list-top-level-folders",
+                            "type": "tool_call",
+                        }
+                    ],
                 )
             ]
         }
+
+    # Route explicit code-search requests directly to search_code.
+    if messages and getattr(messages[-1], "type", None) == "human":
+        import re
+
+        search_text = str(messages[-1].content).strip()
+
+        search_request = re.match(
+            r"""^\s*
+                (?:(?:please|can you)\s+)?
+                (?:search|find|look\s+for|look\s+up)
+                \s+(?:the\s+)?
+                (?:code|repository|repo|files?)
+                \s+(?:for|containing|with)\s+
+                (.+?)
+                \s*$""",
+            search_text,
+            flags=re.IGNORECASE | re.VERBOSE,
+        )
+
+        if search_request:
+            query = search_request.group(1).strip()
+            query = query.removeprefix("the exact string ").strip()
+
+            for marker in (". Report", ". Show", ". Tell", ". Explain"):
+                if marker.lower() in query.lower():
+                    query = query[:query.lower().index(marker.lower())].strip()
+                    break
+
+            if len(query) >= 2 and query[0] == query[-1]:
+                if query[0] in ("'", '"', "`"):
+                    query = query[1:-1].strip()
+
+            if query:
+                workspace_path = (
+                    state.get("workspace_path")
+                    or settings.workspace_root
+                )
+
+                return {
+                    "messages": [
+                        AIMessage(
+                            content="",
+                            tool_calls=[
+                                {
+                                    "name": "search_code",
+                                    "args": {
+                                        "query": query,
+                                        "workspace_path": str(workspace_path),
+                                    },
+                                    "id": "search-requested-code",
+                                    "type": "tool_call",
+                                }
+                            ],
+                        )
+                    ]
+                }
+
+    # Route explicit file-read requests directly to read_file.
+    if messages and getattr(messages[-1], "type", None) == "human":
+        import re
+
+        request_text = str(messages[-1].content).strip()
+
+        read_request = re.match(
+            r"""^\s*(?:please\s+)?read\s+
+                (?:the\s+file\s+)?
+                [`'"]?([^\s`'"]+\.[A-Za-z0-9_+-]+)
+                [`'"]?
+                (?:\s+.*)?$""",
+            request_text,
+            flags=re.IGNORECASE | re.VERBOSE,
+        )
+
+        if read_request:
+            requested_path = read_request.group(1).strip()
+            workspace_path = (
+                state.get("workspace_path")
+                or settings.workspace_root
+            )
+
+            return {
+                "messages": [
+                    AIMessage(
+                        content="",
+                        tool_calls=[
+                            {
+                                "name": "read_file",
+                                "args": {
+                                    "file_path": requested_path,
+                                    "workspace_path": str(workspace_path),
+                                },
+                                "id": "read-requested-file",
+                                "type": "tool_call",
+                            }
+                        ],
+                    )
+                ]
+            }
+
+    # Preserve explicit missing-file errors from repository tools.
+    if messages and isinstance(messages[-1], ToolMessage):
+        tool_result = format_tool_result(messages[-1])
+
+        if tool_result.lstrip().lower().startswith("file not found:"):
+            return {
+                "messages": [
+                    AIMessage(content=tool_result)
+                ]
+            }
 
     workspace_path = (
         state.get("workspace_path")
@@ -168,6 +314,7 @@ def route_after_agent(state: AgentState):
         tool_calls = getattr(last_message, "tool_calls", None) or []
         if any(call.get("name") in {
             "list_files",
+            "list_top_level_folders",
             "read_file",
             "search_code",
             "preview_file_change",

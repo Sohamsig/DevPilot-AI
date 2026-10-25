@@ -118,3 +118,31 @@ def test_file_as_workspace_raises_value_error(tmp_path: Path):
 
     with pytest.raises(ValueError, match="Workspace is not a directory"):
         build_repository_context(file_path)
+def test_context_skips_external_symlinks(tmp_path: Path):
+    outside_file = tmp_path.parent / "outside_context_secret.py"
+    outside_file.write_text(
+        "OUTSIDE_CONTEXT_MARKER",
+        encoding="utf-8",
+    )
+
+    outside_dir = tmp_path.parent / "outside_context_folder"
+    outside_dir.mkdir()
+    (outside_dir / "external.py").write_text(
+        "print('outside')",
+        encoding="utf-8",
+    )
+
+    file_link = tmp_path / "external_file_link.py"
+    dir_link = tmp_path / "external_directory_link"
+
+    try:
+        file_link.symlink_to(outside_file)
+        dir_link.symlink_to(outside_dir, target_is_directory=True)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"Symlink creation is unavailable: {exc}")
+
+    context = build_repository_context(tmp_path)
+
+    assert "external_file_link.py" not in context.files
+    assert "external_directory_link/external.py" not in context.files
+    assert "external_directory_link" not in context.directories
