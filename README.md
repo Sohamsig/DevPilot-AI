@@ -1,4 +1,12 @@
-# DevPilot AI
+﻿# DevPilot AI
+
+<p align="center">
+  <img src="docs/assets/devpilot-logo.svg" alt="DevPilot AI terminal logo" width="180" />
+</p>
+
+<p align="center">
+  <strong>An AI engineering assistant for safer, reviewable code changes.</strong>
+</p>
 
 **An AI-powered developer assistant for working with code repositories, running agent tasks, and reviewing proposed code changes.**
 
@@ -13,17 +21,17 @@ The project includes a command-line interface, a Python AI service, and a Go bac
 
 > **Status:** Active development. The CLI is published on npm. The broader platform and developer experience are evolving.
 
-## ✨ Features
+## âœ¨ Features
 
-- **Command-line interface** — interact with DevPilot AI from your terminal.
-- **AI agent runs** — send a task to the AI service with an optional workspace path.
-- **Repository-aware tools** — the agent has tools for listing files, reading files, searching code, and working with proposed changes.
-- **Reviewable code proposals** — create a proposed file change and inspect its diff.
-- **Explicit approval or rejection** — approve or reject a proposal through the API and CLI.
-- **Service health checks** — check whether the AI service is reachable.
-- **Local-model workflow** — the current agent implementation uses Ollama with `qwen2.5-coder:7b`, avoiding a required paid model API for that path.
+- **Command-line interface** â€” interact with DevPilot AI from your terminal.
+- **AI agent runs** â€” send a task to the AI service with an optional workspace path.
+- **Repository-aware tools** â€” the agent has tools for listing files, reading files, searching code, and working with proposed changes.
+- **Reviewable code proposals** â€” create a proposed file change and inspect its diff.
+- **Explicit approval or rejection** â€” approve or reject a proposal through the API and CLI.
+- **Service health checks** â€” check whether the AI service is reachable.
+- **Local-model workflow** â€” the current agent implementation uses Ollama with `qwen2.5-coder:7b`, avoiding a required paid model API for that path.
 
-## 🧱 Architecture
+## ðŸ§± Architecture
 
 ```text
 Developer
@@ -47,7 +55,7 @@ FastAPI AI Service
 
 The repository also contains a Go backend with chat endpoints and MongoDB persistence. That backend is currently separate from the FastAPI agent workflow.
 
-## 🛠️ Tech Stack
+## ðŸ› ï¸ Tech Stack
 
 | Component | Technology |
 |---|---|
@@ -59,7 +67,7 @@ The repository also contains a Go backend with chat endpoints and MongoDB persis
 | Persistence for Go chat API | MongoDB |
 | Frontend | Planned: Next.js, TypeScript, Tailwind CSS |
 
-## 🚀 Getting Started
+## ðŸš€ Getting Started
 
 ### 1. Install the CLI
 
@@ -122,7 +130,7 @@ devpilot reject YOUR_PROPOSAL_ID
 
 These commands require the proposal to be available to the running service.
 
-## ⚙️ Running the AI Service Locally
+## âš™ï¸ Running the AI Service Locally
 
 The AI service requires Python dependencies and a working Ollama installation with the configured model available.
 
@@ -174,7 +182,7 @@ qwen2.5-coder:7b
 
 Ensure Ollama is installed, running, and has the model available before running agent tasks. Model downloads require sufficient disk space and may take time.
 
-## 🔌 API Overview
+## ðŸ”Œ API Overview
 
 The FastAPI service currently exposes these endpoints:
 
@@ -213,7 +221,7 @@ The response contains the agent's answer:
 
 The exact answer depends on the model and the repository context available to the agent.
 
-## 🧪 Development and Tests
+## ðŸ§ª Development and Tests
 
 Run the CLI tests:
 
@@ -237,7 +245,7 @@ go test ./...
 
 These commands verify different parts of the project. A successful Go command does not necessarily mean behavior is covered by tests; inspect the test output to see which tests actually ran.
 
-## 🔐 Safety Notes
+## ðŸ” Safety Notes
 
 - Review proposed diffs before approving changes.
 - Use a workspace directory that the AI service is authorized to access.
@@ -246,7 +254,7 @@ These commands verify different parts of the project. A successful Go command do
 - Treat model-generated output as untrusted until reviewed and tested.
 - The CLI's ability to reach a service does not mean that service can safely access every path supplied by a user.
 
-## 🗺️ Roadmap
+## ðŸ—ºï¸ Roadmap
 
 Planned and evolving areas include:
 
@@ -259,7 +267,7 @@ Planned and evolving areas include:
 
 Roadmap items are intentions, not claims that the features are already available.
 
-## 🤝 Contributing
+## ðŸ¤ Contributing
 
 Contributions, bug reports, and practical feedback are welcome.
 
@@ -271,7 +279,7 @@ Contributions, bug reports, and practical feedback are welcome.
 
 Please include reproduction steps for bugs and tests for behavior changes where practical.
 
-## 👨‍💻 Author
+## ðŸ‘¨â€ðŸ’» Author
 
 **Soham Babrekar**
 
@@ -281,4 +289,5 @@ Please include reproduction steps for bugs and tests for behavior changes where 
 
 ---
 
-*Building DevPilot AI in public — exploring practical AI agents, developer tooling, and safer code-change workflows.*
+*Building DevPilot AI in public â€” exploring practical AI agents, developer tooling, and safer code-change workflows.*
+

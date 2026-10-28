@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="72" y1="52" x2="444" y2="460" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#142846"/>
+      <stop offset="1" stop-color="#080F1D"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="86" y1="76" x2="430" y2="438" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="0.48" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+    <linearGradient id="prompt" x1="154" y1="190" x2="300" y2="333" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3EE"/>
+      <stop offset="0.55" stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#6366F1"/>
+    </linearGradient>
+    <linearGradient id="cursor" x1="288" y1="332" x2="374" y2="332" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+    <filter id="glow" x="18" y="18" width="476" height="476" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="12"/>
+    </filter>
+  </defs>
+  <rect x="42" y="42" width="428" height="428" rx="100" fill="url(#rim)" opacity="0.20" filter="url(#glow)"/>
+  <rect x="56" y="56" width="400" height="400" rx="88" fill="url(#bg)" stroke="url(#rim)" stroke-width="8"/>
+  <path d="M58 145H454" stroke="#64748B" stroke-opacity="0.34" stroke-width="3"/>
+  <circle cx="105" cy="105" r="12" fill="#38BDF8"/>
+  <circle cx="145" cy="105" r="12" fill="#3B82F6"/>
+  <circle cx="185" cy="105" r="12" fill="#6366F1"/>
+  <path d="M158 204L238 264L158 324" stroke="url(#prompt)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M274 329H365" stroke="url(#cursor)" stroke-width="30" stroke-linecap="round"/>
+  <path d="M158 204L238 264L158 324" stroke="#E0F2FE" stroke-opacity="0.15" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M91 78C118 63 148 60 177 62" stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="4" stroke-linecap="round"/>
+</svg>
