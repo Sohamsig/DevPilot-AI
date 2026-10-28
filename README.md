@@ -289,5 +289,5 @@ Please include reproduction steps for bugs and tests for behavior changes where 
 
 ---
 
-*Building DevPilot AI in public â€” exploring practical AI agents, developer tooling, and safer code-change workflows.*
+*Building DevPilot AI in public exploring practical AI agents, developer tooling, and safer code-change workflows.*
 
