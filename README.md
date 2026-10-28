@@ -182,7 +182,7 @@ qwen2.5-coder:7b
 
 Ensure Ollama is installed, running, and has the model available before running agent tasks. Model downloads require sufficient disk space and may take time.
 
-## ðŸ”Œ API Overview
+##  API Overview
 
 The FastAPI service currently exposes these endpoints:
 
