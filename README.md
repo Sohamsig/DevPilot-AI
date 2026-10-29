@@ -23,13 +23,13 @@ The project includes a command-line interface, a Python AI service, and a Go bac
 
 ##  Features
 
-- **Command-line interface** â€” interact with DevPilot AI from your terminal.
-- **AI agent runs** â€” send a task to the AI service with an optional workspace path.
-- **Repository-aware tools** â€” the agent has tools for listing files, reading files, searching code, and working with proposed changes.
-- **Reviewable code proposals** â€” create a proposed file change and inspect its diff.
-- **Explicit approval or rejection** â€” approve or reject a proposal through the API and CLI.
-- **Service health checks** â€” check whether the AI service is reachable.
-- **Local-model workflow** â€” the current agent implementation uses Ollama with `qwen2.5-coder:7b`, avoiding a required paid model API for that path.
+- **Command-line interface** interact with DevPilot AI from your terminal.
+- **AI agent runs** send a task to the AI service with an optional workspace path.
+- **Repository-aware tools** the agent has tools for listing files, reading files, searching code, and working with proposed changes.
+- **Reviewable code proposals** create a proposed file change and inspect its diff.
+- **Explicit approval or rejection** approve or reject a proposal through the API and CLI.
+- **Service health checks** check whether the AI service is reachable.
+- **Local-model workflow** the current agent implementation uses Ollama with `qwen2.5-coder:7b`, avoiding a required paid model API for that path.
 
 ##  Architecture
 
